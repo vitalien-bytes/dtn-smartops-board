@@ -1,45 +1,34 @@
-
 import os
-from datetime import date
-from typing import Optional
-from fastapi import FastAPI, Request, Depends, Form, HTTPException, status
-from fastapi.responses import RedirectResponse, HTMLResponse
+import secrets
+from fastapi import FastAPI, Request, Form, Depends, HTTPException
+from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
-from sqlalchemy import create_engine, Column, Integer, String, Date
-from sqlalchemy.orm import sessionmaker, declarative_base, Session as OrmSession
+from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
+from sqlalchemy import select, func
 
-DB_URL = os.getenv("DATABASE_URL") or os.getenv("DATABASE_URI")
-if not DB_URL:
-    raise RuntimeError("DATABASE_URL environment variable is required")
-if DB_URL.startswith("postgres://"):
-    DB_URL = DB_URL.replace("postgres://", "postgresql://", 1)
+from database import SessionLocal, engine
+from models import Base, Board, Column, Card
 
+# --- Configuration ---
 ADMIN_USER = os.getenv("ADMIN_USER", "admin")
 ADMIN_PASS = os.getenv("ADMIN_PASS", "DTN-2025-secure-base")
-SECRET_KEY = os.getenv("SECRET_KEY", "change-me-please-very-secret")
+BOARD_TITLE = os.getenv("BOARD_TITLE", "DTN SmartOps")
 
-app = FastAPI(title="DTN SmartOps")
-app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY, same_site="lax")
+SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_hex(16))
 
-engine = create_engine(DB_URL, pool_pre_ping=True)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-Base = declarative_base()
+# --- Création de l'application ---
+app = FastAPI(title="DTN SmartOps Board")
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
-class Activite(Base):
-    __tablename__ = "activites"
-    id = Column(Integer, primary_key=True, index=True)
-    client = Column(String(255), nullable=False)
-    type_intervention = Column(String(255), nullable=False)
-    technicien = Column(String(255), nullable=True)
-    statut = Column(String(50), nullable=False, default="À faire")
-    note = Column(String(1000), nullable=True)
-    date_prevue = Column(Date, nullable=True)
-    commentaire = Column(String(1000), nullable=True)
+templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# --- Initialisation de la base ---
 Base.metadata.create_all(bind=engine)
 
+# --- Dépendance DB ---
 def get_db():
     db = SessionLocal()
     try:
@@ -47,110 +36,57 @@ def get_db():
     finally:
         db.close()
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
-
-def require_auth(request: Request):
-    return bool(request.session.get("user"))
-
-@app.get("/login", response_class=HTMLResponse)
+# --- Routes principales ---
+@app.get("/", response_class=HTMLResponse)
 def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+    return templates.TemplateResponse("login.html", {"request": request, "title": BOARD_TITLE})
+
 
 @app.post("/login")
 def login(request: Request, username: str = Form(...), password: str = Form(...)):
     if username == ADMIN_USER and password == ADMIN_PASS:
         request.session["user"] = username
-        return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
-    return templates.TemplateResponse("login.html", {"request": request, "error": "Identifiants incorrects."})
+        return RedirectResponse(url="/board", status_code=303)
+    raise HTTPException(status_code=401, detail="Identifiants invalides")
+
+
+@app.get("/board", response_class=HTMLResponse)
+def board_page(request: Request, db: Session = Depends(get_db)):
+    user = request.session.get("user")
+    if not user:
+        return RedirectResponse(url="/", status_code=303)
+
+    columns = db.scalars(select(Column).order_by(Column.id)).all()
+    return templates.TemplateResponse(
+        "board.html",
+        {"request": request, "title": BOARD_TITLE, "columns": columns, "user": user},
+    )
+
+
+@app.post("/add_card")
+def add_card(column_id: int = Form(...), title: str = Form(...), db: Session = Depends(get_db)):
+    card = Card(title=title, column_id=column_id)
+    db.add(card)
+    db.commit()
+    return RedirectResponse(url="/board", status_code=303)
+
+
+@app.post("/move_card")
+def move_card(card_id: int = Form(...), new_column_id: int = Form(...), db: Session = Depends(get_db)):
+    card = db.get(Card, card_id)
+    if card:
+        card.column_id = new_column_id
+        db.commit()
+    return RedirectResponse(url="/board", status_code=303)
+
 
 @app.get("/logout")
 def logout(request: Request):
     request.session.clear()
-    return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+    return RedirectResponse(url="/", status_code=303)
 
-@app.get("/", response_class=HTMLResponse)
-def home(request: Request, db: OrmSession = Depends(get_db)):
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    rows = db.query(Activite).order_by(Activite.id.desc()).all()
-    return templates.TemplateResponse("index.html", {"request": request, "rows": rows})
 
-@app.post("/add")
-def add_item(
-    request: Request,
-    client: str = Form(...),
-    type_intervention: str = Form(...),
-    technicien: Optional[str] = Form(None),
-    statut: str = Form("À faire"),
-    note: Optional[str] = Form(None),
-    date_prevue: Optional[str] = Form(None),
-    commentaire: Optional[str] = Form(None),
-    db: OrmSession = Depends(get_db),
-):
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    d = None
-    if date_prevue:
-        try:
-            y, m, d2 = [int(x) for x in date_prevue.split("-")]
-            d = date(y, m, d2)
-        except Exception:
-            d = None
-    item = Activite(
-        client=client.strip(),
-        type_intervention=type_intervention.strip(),
-        technicien=(technicien or "").strip(),
-        statut=statut.strip(),
-        note=(note or "").strip(),
-        date_prevue=d,
-        commentaire=(commentaire or "").strip(),
-    )
-    db.add(item)
-    db.commit()
-    return RedirectResponse("/", status_code=status.HTTP_302_FOUND)
-
-@app.post("/edit/{item_id}")
-def edit_item(
-    item_id: int,
-    request: Request,
-    client: str = Form(...),
-    type_intervention: str = Form(...),
-    technicien: Optional[str] = Form(None),
-    statut: str = Form("À faire"),
-    note: Optional[str] = Form(None),
-    date_prevue: Optional[str] = Form(None),
-    commentaire: Optional[str] = Form(None),
-    db: OrmSession = Depends(get_db),
-):
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    item = db.get(Activite, item_id)
-    if not item:
-        raise HTTPException(404, "Non trouvé")
-    item.client = client.strip()
-    item.type_intervention = type_intervention.strip()
-    item.technicien = (technicien or "").strip()
-    item.statut = statut.strip()
-    item.note = (note or "").strip()
-    if date_prevue:
-        try:
-            y, m, d2 = [int(x) for x in date_prevue.split("-")]
-            item.date_prevue = date(y, m, d2)
-        except Exception:
-            item.date_prevue = None
-    else:
-        item.date_prevue = None
-    item.commentaire = (commentaire or "").strip()
-    db.commit()
-    return RedirectResponse("/", status_code=status.HTTP_302_FOUND)
-
-@app.post("/delete/{item_id}")
-def delete_item(item_id: int, request: Request, db: OrmSession = Depends(get_db)):
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    item = db.get(Activite, item_id)
-    if item:
-        db.delete(item)
-        db.commit()
-    return RedirectResponse("/", status_code=status.HTTP_302_FOUND)
+# --- Lancer le serveur localement ou sur Render ---
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=10000)
