@@ -1,0 +1,39 @@
+
+:root{
+  --bg:#f7f9fc;
+  --card:#ffffff;
+  --text:#0f172a;
+  --muted:#64748b;
+  --primary:#0ea5e9;
+  --accent:#f59e0b;
+  --danger:#dc2626;
+  --border:#e5e7eb;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
+.topbar{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;background:#fff;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10}
+.brand{display:flex;align-items:center;gap:12px}
+.logo-square{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,var(--primary),var(--accent));box-shadow:0 0 0 3px rgba(14,165,233,.15)}
+.topbar h1{font-size:18px;margin:0;font-weight:700}
+.topbar nav a{margin-left:12px;color:var(--muted);text-decoration:none}
+.topbar nav a:hover{color:var(--primary)}
+.container{max-width:1100px;margin:24px auto;padding:0 16px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow:0 4px 14px rgba(15,23,42,.05)}
+.card h3{margin:0 0 10px}
+.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.form-grid .col-2{grid-column:1/-1}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;background:#fff}
+button{padding:10px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:600;cursor:pointer}
+button:hover{filter:brightness(0.95)}
+button.danger{background:var(--danger)}
+table{width:100%;border-collapse:collapse;border:1px solid var(--border)}
+th,td{padding:8px;border-bottom:1px solid var(--border);text-align:left}
+details{display:inline-block}
+.row-actions{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:8px 0}
+.footer{margin:40px auto;text-align:center;color:var(--muted)}
+.auth-body{display:flex;align-items:center;justify-content:center;height:100vh;background:var(--bg)}
+.login-card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:22px;min-width:340px;box-shadow:0 10px 30px rgba(0,0,0,.08)}
+.login-card h2{margin:10px 0 16px}
+.title-left{justify-content:flex-start;margin-bottom:8px}
+.alert{background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;padding:8px 10px;border-radius:10px;margin-bottom:8px}

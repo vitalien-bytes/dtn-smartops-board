@@ -1,0 +1,74 @@
+
+{% extends "layout.html" %}
+{% block content %}
+<section class="grid">
+  <div class="card">
+    <h3>Ajouter une activité</h3>
+    <form method="post" action="/add" class="form-grid">
+      <label>Client <input name="client" required></label>
+      <label>Type d'intervention
+        <input name="type_intervention" placeholder="Fibre, Borne, Viabilisation…" required>
+      </label>
+      <label>Technicien <input name="technicien"></label>
+      <label>Statut
+        <select name="statut">
+          <option>À faire</option>
+          <option>En cours</option>
+          <option>Terminé</option>
+        </select>
+      </label>
+      <label>Date prévue <input name="date_prevue" type="date"></label>
+      <label>Note <input name="note"></label>
+      <label class="col-2">Commentaire
+        <textarea name="commentaire" rows="3"></textarea>
+      </label>
+      <button type="submit" class="col-2">Ajouter</button>
+    </form>
+  </div>
+
+  <div class="card col-2">
+    <h3>Activités</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th><th>Client</th><th>Intervention</th><th>Technicien</th><th>Statut</th><th>Date</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>{{ r.id }}</td>
+          <td>{{ r.client }}</td>
+          <td>{{ r.type_intervention }}</td>
+          <td>{{ r.technicien }}</td>
+          <td>{{ r.statut }}</td>
+          <td>{{ r.date_prevue or "" }}</td>
+          <td>
+            <details>
+              <summary>Modifier</summary>
+              <form method="post" action="/edit/{{ r.id }}" class="row-actions">
+                <input name="client" value="{{ r.client }}">
+                <input name="type_intervention" value="{{ r.type_intervention }}">
+                <input name="technicien" value="{{ r.technicien or '' }}">
+                <select name="statut">
+                  {% for s in ["À faire","En cours","Terminé"] %}
+                    <option {% if s==r.statut %}selected{% endif %}>{{ s }}</option>
+                  {% endfor %}
+                </select>
+                <input name="date_prevue" type="date" value="{{ r.date_prevue }}">
+                <input name="note" value="{{ r.note or '' }}">
+                <input name="commentaire" value="{{ r.commentaire or '' }}">
+                <button>Enregistrer</button>
+              </form>
+              <form method="post" action="/delete/{{ r.id }}" onsubmit="return confirm('Supprimer ?');">
+                <button class="danger">Supprimer</button>
+              </form>
+            </details>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

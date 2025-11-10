@@ -1,0 +1,26 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DTN SmartOps</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo-square" aria-hidden="true"></div>
+      <h1>DTN SmartOps</h1>
+    </div>
+    <nav>
+      <a href="/">Tableau</a>
+      <a href="/logout">Déconnexion</a>
+    </nav>
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="footer">© 2025 Digital Telecom Network — SmartOps</footer>
+</body>
+</html>

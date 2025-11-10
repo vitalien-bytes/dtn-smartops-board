@@ -1,0 +1,29 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion — DTN SmartOps</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="auth-body">
+  <div class="login-card">
+    <div class="brand title-left">
+      <div class="logo-square" aria-hidden="true"></div>
+      <h1>DTN SmartOps</h1>
+    </div>
+    <h2>Connexion</h2>
+    {% if error %}<div class="alert">{{ error }}</div>{% endif %}
+    <form method="post" action="/login" class="form-grid">
+      <label>Identifiant
+        <input type="text" name="username" value="admin" required>
+      </label>
+      <label>Mot de passe
+        <input type="password" name="password" required>
+      </label>
+      <button type="submit">Se connecter</button>
+    </form>
+  </div>
+</body>
+</html>
